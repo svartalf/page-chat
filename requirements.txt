@@ -1,0 +1,2 @@
+-e git+git://github.com/njoyce/sockjs-gevent.git#egg=sockjs-gevent
+redis

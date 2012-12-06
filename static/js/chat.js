@@ -34,7 +34,8 @@ $(function() {
             id: self.attr('data-id'),
             top: self.position().top,
             left: self.position().left+1,
-            value: self.val()
+            value: self.val(),
+            expires: new Date().getTime() + 1000*60*3
         }));
     });
 
@@ -46,13 +47,18 @@ $(function() {
             return;
 
         var id = self.attr('data-id');
-        var container = $('<div/>').attr('id', id).text(text).css({
+
+        if ($('#'+id).length > 0) // Dirty hack to prevent duplicates
+            return;
+
+        var container = $('<div/>').text(text).attr({
+            'id': id
+        }).css({
             top: self.position().top,
             left: self.position().left+1
         });
         $('body').append(container);
-        var die = new Date().getTime() + 1000*60*3;
-        entries[die] = id;
+        entries[id] = new Date().getTime() + 1000*60*3;
     });
 
     function connect() {
@@ -66,28 +72,31 @@ $(function() {
             var data = JSON.parse(event.data);
             var container = $('#'+data.id);
             if (container.length == 0) {
-                container = $('<div/>').attr('id', data.id).css({
+                container = $('<div/>').attr({
+                    'id': data.id
+                }).css({
                     top: data.top,
                     left: data.left
                 });
                 $('body').append(container);
             }
             container.text(data.value);
+            entries[data.id] = data.expires;
         };
     }
 
-    connect();
-
     window.setInterval(function() {
         var time = new Date().getTime();
-        var id;
-        for (var prop in entries) {
-            if (entries.hasOwnProperty(prop)) {
-                id = entries[prop];
-                $('#'+id).remove();
-                delete entries[prop];
+        for (var id in entries) {
+            if (entries.hasOwnProperty(id)) {
+                if (time > entries[id]) {
+                    $('#'+id).remove();
+                    delete entries[id];
+                }
             }
         }
     }, 1000);
+
+    connect();
 
 });

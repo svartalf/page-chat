@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 
 import json
-import redis
 
 import tornado.ioloop
 import tornado.web
+import tornado.gen
+import tornadoredis
 import sockjs.tornado
 
 
@@ -21,20 +22,38 @@ class SocketConnection(sockjs.tornado.SockJSConnection):
 
     def on_open(self, request):
         self.clients.add(self)
-        self.redis = redis.StrictRedis(db=6)
-        keys = self.redis.keys()
-        if keys:
-            values = self.redis.mget(keys)
-            for value in values:
-                self.send(value)
+
+        self.redis = tornadoredis.Client(selected_db=6)
+        self.redis.connect()
+
+        self.redis.keys('*', self._keys_callback)
+
+    def _keys_callback(self, response):
+        if response:
+            self.redis.mget(response, self._init_callback)
+
+    def _init_callback(self, response):
+        for message in response:
+            self.send(message)
+
 
     def on_message(self, message):
-        data = json.loads(message)
-        self.redis.setex(data['id'], 60*3, message)
-        self.broadcast(self.clients, message)
+        message = json.loads(message)
+
+        message['value'] = message['value'][:255]
+
+        output = json.dumps(message)
+        for client in self.clients:
+            if client == self:
+                continue
+
+            client.send(output)
+
+        self.redis.setex(message['id'], 60*3, output)
 
     def on_close(self):
         self.clients.remove(self)
+
 
 if __name__ == '__main__':
     import logging

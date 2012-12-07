@@ -1,2 +1,2 @@
 sockjs-tornado
-redis
+tornado-redis
